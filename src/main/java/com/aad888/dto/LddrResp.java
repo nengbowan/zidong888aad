@@ -18,6 +18,7 @@ public class LddrResp {
 
     private LddrNextGameResp next_game;
 
+    private LddrNextGameResp recent_game;
     private String game_switch;
 
     private LddrUserResp user;

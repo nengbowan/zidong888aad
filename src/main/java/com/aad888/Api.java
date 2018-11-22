@@ -141,22 +141,22 @@ public class Api {
 
         passwdCheck();
 
-        String checkUrlHtml = checkRule();
-
-        CheckRuleDto ruleDto = parseCheckUrlHtml(checkUrlHtml);
+//        String checkUrlHtml = checkRule();
+//
+//        CheckRuleDto ruleDto = parseCheckUrlHtml(checkUrlHtml);
 
 //        String unreadJson = getUnreadMessage();
 
 //        UnreadMessage unreadMessage = parseUnreadMessage(unreadJson);
 
         //500 Internal error
-        String lotteryHtml = indexModuleSystem(ruleDto.getGtype(), ruleDto.getPageSize(), ruleDto.getUid());
-
-        this.htmlUsername = parseLotteryHtml2Username(lotteryHtml);
-
-        this.htmlMoney = parseLotteryHtml2Money(lotteryHtml);
-
-        happy();
+//        String lotteryHtml = indexModuleSystem(ruleDto.getGtype(), ruleDto.getPageSize(), ruleDto.getUid());
+//
+//        this.htmlUsername = parseLotteryHtml2Username(lotteryHtml);
+//
+//        this.htmlMoney = parseLotteryHtml2Money(lotteryHtml);
+//
+//        happy();
 
 
         //二次授权 草拟吗 真难找哎 找了俩星期
@@ -201,8 +201,12 @@ public class Api {
             int cut4 = NumberUtil.cut4(currentLddrNum);
             //反向下注
 //            System.out.println("当前下注轮次:" + betIndex);
-            doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
 
+            if(betIndex >= 6){
+                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
+            }else{
+                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
+            }
 
             String betAfterGameNum = null;
             LddrResp betAfterDto = null;
@@ -231,9 +235,14 @@ public class Api {
                 e.printStackTrace();
             }
 
-            nextMoney = JSONObject.parseObject(addr(null), LddrResp.class).getUser().getBalance().getCash();;
+            LddrResp tempDto = JSONObject.parseObject(addr(null), LddrResp.class) ;
+
+            System.out.println("上期开奖结果:"+tempDto.getRecent_game().getResult());
+
+            nextMoney = tempDto.getUser().getBalance().getCash();
 
             System.out.println("当前余额:"+nextMoney);
+
 
 
             //判断是否输赢
@@ -639,20 +648,17 @@ public class Api {
         httpGet.addHeader(new BasicHeader(Config.WebHeaderConfig.USERAGENT_KEY, Config.WebHeaderConfig.USERAGENT_VALUE));
         httpGet.addHeader(new BasicHeader("Referer", "https://lt.888aad.com/charon/"));
 
-        try {
 
-            try{
-                HttpResponse response = this.client.execute(httpGet);
-                String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
-                return respStr;
-            }catch (SocketTimeoutException socketTimeoutException){
-                System.out.println("系统超时，再次请求");
-                return addr(num);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+
+        try{
+            HttpResponse response = this.client.execute(httpGet);
+            String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
+            return respStr;
+        }catch (Exception exception){
+            System.out.println("系统超时，再次请求");
+            return addr(num);
         }
-        return null;
+
     }
 
 }
