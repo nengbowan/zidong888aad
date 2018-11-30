@@ -6,6 +6,7 @@ import com.aad888.enums.BetType;
 import com.aad888.util.HttpClientUtils;
 import com.aad888.util.NumberUtil;
 import com.aad888.util.RuoKuai;
+import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.HttpEntity;
@@ -56,6 +57,12 @@ public class Api {
 
     private String baseUrl = "http://888aad.com";
 
+//    private String baseUrl = "http://juren96.com";
+
+//    private String ltBaseUrl = "http://lt.juren96.com";
+
+    private String ltBaseUrl = "http://lt.888aad.com";
+
     private int[] betMoney;
 
     private int betIndex;
@@ -69,6 +76,7 @@ public class Api {
 
     }
 
+//    public
     /**
      * 获取验证码前置参数
      *
@@ -187,8 +195,16 @@ public class Api {
         LddrResp currentLddr = null;
         String currentLddrNum = null;
         do{
-            currentLddr = JSONObject.parseObject(addr(null), LddrResp.class);;
-            currentLddrNum = currentLddr.getOpening_game().getNum();
+            try{
+                currentLddr = JSONObject.parseObject(addr(null), LddrResp.class);;
+                currentLddrNum = currentLddr.getOpening_game().getNum();
+            }catch (JSONException exception){
+                System.out.println("密码错误");
+                return;
+            }
+//            currentLddr = JSONObject.parseObject(addr(null), LddrResp.class);;
+//            currentLddrNum = currentLddr.getOpening_game().getNum();
+
         }while(currentLddrNum.equals(""));
 
         String currentMoney = currentLddr.getUser().getBalance().getCash();
@@ -202,11 +218,15 @@ public class Api {
             //反向下注
 //            System.out.println("当前下注轮次:" + betIndex);
 
-            if(betIndex >= 6){
-                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
-            }else{
-                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
-            }
+            doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
+
+
+//            if(betIndex < 6){
+//                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
+//            }else{
+//
+//                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
+//            }
 
             String betAfterGameNum = null;
             LddrResp betAfterDto = null;
@@ -248,9 +268,19 @@ public class Api {
             //判断是否输赢
             if (hasLose(betAfterMoney, nextMoney)) {
                 betIndex++;
+
+                if(betIndex == 8){
+                    betIndex = 0;
+                }
+
             } else {
                 betIndex = 0;
             }
+
+
+
+
+
 
             currentLddrNum = nextLddrNum;
             currentMoney = nextMoney;
@@ -269,7 +299,7 @@ public class Api {
     }
 
     private String lotteryLoginBefore() {
-        String login2Url = "http://lt.888aad.com/vender.php?lang=zh-cn&referer_url=/pt/../charon/";
+        String login2Url = ltBaseUrl+"/vender.php?lang=zh-cn&referer_url=/pt/../charon/";
         HttpGet login2Get = new HttpGet(login2Url);
         login2Get.addHeader(new BasicHeader(Config.WebHeaderConfig.USERAGENT_KEY, Config.WebHeaderConfig.USERAGENT_VALUE));
         String login2BeforeResp = HttpClientUtils.getOrPost(login2Get, client);
@@ -310,12 +340,12 @@ public class Api {
     private String doBet(String gameNum, Integer betType, String betMoney) {
 
         //下注地址
-        String doBetUrl = "http://lt.888aad.com/pt/mem/ajax/order/LDDR.json?lang=zh-cn";
+        String doBetUrl = ltBaseUrl+"/pt/mem/ajax/order/LDDR.json?lang=zh-cn";
         HttpPost httpPost = new HttpPost(doBetUrl);
         Map<String, String> headerParams = new HashMap();
 //        headerParams.put("Content-Type","application/x-www-form-urlencoded");
         headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
-        headerParams.put("Referer", "https://lt.888aad.com/charon/");
+        headerParams.put("Referer", ltBaseUrl + "/charon/");
         headerParams.put("Content-Type", "application/x-www-form-urlencoded");
         if (headerParams != null && headerParams.size() > 0) {
             for (Map.Entry<String, String> entry : headerParams.entrySet()) {
@@ -383,12 +413,12 @@ public class Api {
         if (count == 0) {
             throw new IllegalArgumentException("获取最近记录条数失败 " + count);
         }
-        String recentLddrUrl = "http://lt.888aad.com/pt/mem/ajax/recent_resulted/LDDR/" + count + ".json";
+        String recentLddrUrl = ltBaseUrl + "/pt/mem/ajax/recent_resulted/LDDR/" + count + ".json";
 
         HttpGet httpGet = new HttpGet(recentLddrUrl);
         Map<String, String> headerParams = new HashMap();
         headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
-        headerParams.put("Referer", "https://lt.888aad.com/charon/");
+        headerParams.put("Referer", ltBaseUrl + "/charon/");
         if (headerParams != null && headerParams.size() > 0) {
             for (Map.Entry<String, String> entry : headerParams.entrySet()) {
                 httpGet.addHeader(new BasicHeader(entry.getKey(), entry.getValue()));
@@ -405,12 +435,12 @@ public class Api {
     }
 
     private String getResultedLddr() {
-        String resultLddrUrl = "http://lt.888aad.com/pt/mem/ajax/lddr/resulted.json";
+        String resultLddrUrl = ltBaseUrl + "/pt/mem/ajax/lddr/resulted.json";
 
         HttpGet httpGet = new HttpGet(resultLddrUrl);
         Map<String, String> headerParams = new HashMap();
         headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
-        headerParams.put("Referer", "https://lt.888aad.com/charon/");
+        headerParams.put("Referer", ltBaseUrl + "/charon/");
         if (headerParams != null && headerParams.size() > 0) {
             for (Map.Entry<String, String> entry : headerParams.entrySet()) {
                 httpGet.addHeader(new BasicHeader(entry.getKey(), entry.getValue()));
@@ -633,7 +663,7 @@ public class Api {
     }
 
     public String addr(Long num) {
-        String url = "http://lt.888aad.com/pt/mem/ajax/lddr/source.json?lang=zh-cn";
+        String url = ltBaseUrl + "/pt/mem/ajax/lddr/source.json?lang=zh-cn";
         if (num != null) {
             url = url + "&num=" + num;
         }
@@ -646,7 +676,7 @@ public class Api {
         httpGet.setConfig(requestConfig);
 
         httpGet.addHeader(new BasicHeader(Config.WebHeaderConfig.USERAGENT_KEY, Config.WebHeaderConfig.USERAGENT_VALUE));
-        httpGet.addHeader(new BasicHeader("Referer", "https://lt.888aad.com/charon/"));
+        httpGet.addHeader(new BasicHeader("Referer", ltBaseUrl + "/charon/"));
 
 
 
