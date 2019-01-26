@@ -55,13 +55,13 @@ public class Api {
 
     private String htmlMoney; //页面获取的金额
 
-    private String baseUrl = "http://888aad.com";
+    private String baseUrl = "https://888aad.com";
 
 //    private String baseUrl = "http://juren96.com";
 
 //    private String ltBaseUrl = "http://lt.juren96.com";
 
-    private String ltBaseUrl = "http://lt.888aad.com";
+    private String ltBaseUrl = "https://lt.888aad.com";
 
     private int[] betMoney;
 
@@ -169,6 +169,7 @@ public class Api {
 
         //二次授权 草拟吗 真难找哎 找了俩星期
         String secondAuth = lotteryLoginBefore();
+        float max = 0;
 
 //        String lobbeyJson = getLobbyJson();
 //
@@ -196,7 +197,8 @@ public class Api {
         String currentLddrNum = null;
         do{
             try{
-                currentLddr = JSONObject.parseObject(addr(null), LddrResp.class);;
+                String resp = addr(null);
+                currentLddr = JSONObject.parseObject(resp, LddrResp.class);;
                 currentLddrNum = currentLddr.getOpening_game().getNum();
             }catch (JSONException exception){
                 System.out.println("密码错误");
@@ -212,17 +214,23 @@ public class Api {
         String nextLddrNum = null;
         String nextMoney = null;
         betIndex = 0;
+        int count = 0;
+        int betSum = 0;
         while (true) {
             System.out.println("当前期数:"+currentLddrNum);
             int cut4 = NumberUtil.cut4(currentLddrNum);
             //反向下注
 //            System.out.println("当前下注轮次:" + betIndex);
 
-            doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
+//            doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
 
 
 //            if(betIndex < 6){
-//                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
+                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
+                count++;
+                betSum+= betMoney[betIndex];
+            System.out.println("总下注次数:"+count);
+            System.out.println("总下注金钱:"+betSum);
 //            }else{
 //
 //                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
@@ -242,10 +250,30 @@ public class Api {
             System.out.println("下注完余额:"+betAfterMoney);
             do {
                 String lddrResp = addr(null);
-                LddrResp nextLddrDto = JSONObject.parseObject(lddrResp, LddrResp.class);
-                nextLddrNum = nextLddrDto.getOpening_game().getNum();
-                nextMoney = nextLddrDto.getUser().getBalance().getCash();
-                //如果nextGameResp下一次游戏记录为空 ， 代表可以投注
+                LddrResp nextLddrDto =null;
+                try{
+                    nextLddrDto = JSONObject.parseObject(lddrResp, LddrResp.class);
+                }catch (JSONException ex){
+                    ex.printStackTrace();
+                    nextLddrDto = JSONObject.parseObject(lddrResp, LddrResp.class);
+                }
+
+                if(nextLddrDto.getOpening_game()!= null){
+                    nextLddrNum = nextLddrDto.getOpening_game().getNum();
+                    nextMoney = nextLddrDto.getUser().getBalance().getCash();
+                    //如果nextGameResp下一次游戏记录为空 ， 代表可以投注
+                }
+//                else{
+//                    try {
+//                        Thread.sleep(4000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    System.out.println("官方开采系统有误，重试");
+//                    nextLddrNum = nextLddrDto.getOpening_game().getNum();
+//                    nextMoney = nextLddrDto.getUser().getBalance().getCash();
+//                    //如果nextGameResp下一次游戏记录为空 ， 代表可以投注
+//                }
             } while (nextLddrNum.equals("") || betAfterGameNum.equalsIgnoreCase(nextLddrNum));
 
             //休眠两秒，以获取实际中奖与否的金额
@@ -263,7 +291,11 @@ public class Api {
 
             System.out.println("当前余额:"+nextMoney);
 
+            float max1 = Math.max(Float.valueOf(betAfterMoney) ,Float.valueOf(nextMoney) );
 
+
+            max = Math.max(max , max1);
+            System.out.println("最大余额："+  max);
 
             //判断是否输赢
             if (hasLose(betAfterMoney, nextMoney)) {
@@ -287,6 +319,7 @@ public class Api {
 
             nextLddrNum = "";
             nextMoney = "";
+
         }
 
         //betType 1 单
@@ -686,6 +719,11 @@ public class Api {
             return respStr;
         }catch (Exception exception){
             System.out.println("系统超时，再次请求");
+            try {
+                Thread.sleep(4000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             return addr(num);
         }
 
