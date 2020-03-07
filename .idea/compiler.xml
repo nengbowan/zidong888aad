@@ -9,8 +9,5 @@
         <module name="zidong888aad" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="zidong888aad" target="1.8" />
-    </bytecodeTargetLevel>
   </component>
 </project>

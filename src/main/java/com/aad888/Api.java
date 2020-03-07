@@ -6,9 +6,12 @@ import com.aad888.enums.BetType;
 import com.aad888.util.HttpClientUtils;
 import com.aad888.util.NumberUtil;
 import com.aad888.util.RuoKuai;
+import com.aad888.util.StringUtils;
+import com.aad888.util.feifei.Hello;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.io.FileUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -35,6 +38,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Api {
 
@@ -51,17 +56,13 @@ public class Api {
 
     private String SESSION_ID;
 
-    private String htmlUsername; //页面获取的用户名
-
-    private String htmlMoney; //页面获取的金额
-
-    private String baseUrl = "https://888aad.com";
+    private String baseUrl = "https://www.240zr.com:9900";
 
 //    private String baseUrl = "http://juren96.com";
 
 //    private String ltBaseUrl = "http://lt.juren96.com";
 
-    private String ltBaseUrl = "https://lt.888aad.com";
+    private String ltBaseUrl = "https://latticecatch.com:8899";
 
     private int[] betMoney;
 
@@ -88,7 +89,7 @@ public class Api {
         HttpGet httpGet = new HttpGet(url);
 
         httpGet.addHeader(new BasicHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0"));
-        httpGet.addHeader(new BasicHeader("Referer", "https://888aad.com/cl/index.php?module=System&method=first"));
+        httpGet.addHeader(new BasicHeader("Referer", "https://www.240zr.com:9900/entrance/page/soya?ni=1"));
         try {
             HttpResponse httpResponse = client.execute(httpGet);
 
@@ -133,21 +134,50 @@ public class Api {
         return null;
     }
 
-    public void doIt() {
-        getVerifyBefore();
-        String path = getVerfiyPath();
-        //调用模块识别验证码
-        String xmlResp = RuoKuai.createByPost(
-                RuoKuai.username, RuoKuai.password,
-                RuoKuai.typeId, RuoKuai.timeout,
-                RuoKuai.softId, RuoKuai.softKey,
-                path);
 
-        String verifyCode = getVerifyCode(xmlResp);
+    public static String getUsernameAndBalance(String content){
+        String username = null;
+        String balance = null;
+        Pattern userRegex = Pattern.compile("帐号：</span><strong>(.*)</strong>");
+        Pattern balanceRegex = Pattern.compile("<span>BBIN 余额：</span>\n        <strong>(.*)</strong>");
+        Matcher userMatcher = userRegex.matcher(content);
+        Matcher balanceMatcher = balanceRegex.matcher(content);
+        if(userMatcher.find()){
+            username = userMatcher.group(1);
+        }
+        if(balanceMatcher.find()){
+            balance = balanceMatcher.group(1);
+        }
+        StringBuffer result = new StringBuffer();
+        if(username != null){
+            result.append("欢迎您,"+username);
+        }
+        if(balance != null){
+            result.append("\n当前余额:"+balance);
+        }
+        return result.toString();
 
-        doLogin(verifyCode);
+    }
 
-        passwdCheck();
+    public void doIt() throws Exception{
+        int flag = 0;
+        do{
+            getVerifyBefore();
+            String path = getVerfiyPath();
+            String verifyCode = Hello.recognize(path);
+            if(StringUtils.isEmpty(verifyCode)){
+                System.out.println("验证码识别失败");
+                return;
+            }
+            flag = doLogin(verifyCode);
+        }while(flag==2);
+
+        if(flag == 0){
+            System.out.println("登陆失败");
+            return;
+        }
+
+
 
 //        String checkUrlHtml = checkRule();
 //
@@ -164,27 +194,36 @@ public class Api {
 //
 //        this.htmlMoney = parseLotteryHtml2Money(lotteryHtml);
 //
-//        happy();
+        happy();
 
+        client.execute(new HttpGet(baseUrl + "infe/rest/game/lottery/lobby.json?_=1575039742324"));
 
-        //二次授权 草拟吗 真难找哎 找了俩星期
-        String secondAuth = lotteryLoginBefore();
+        //请求第三方cookie
+        client.execute(new HttpGet(ltBaseUrl + "/pt/mem/ajax/cdn.json"));
+        client.execute(new HttpGet(ltBaseUrl+"/pt/mem/ajax/orderad/item/lddr"));
+        client.execute(new HttpGet(ltBaseUrl+"/vender.php?lang=zh-cn&referer_url=/pt/../charon/%23/game/lddr"));
+        client.execute(new HttpGet(ltBaseUrl+"/vender.php?lang=zh-cn&referer_url=/pt/../charon/"));
+        client.execute(new HttpGet(ltBaseUrl+"/pt/mem/ajax/config/init.json"));
         float max = 0;
 
-//        String lobbeyJson = getLobbyJson();
+
+
+        //获取梯子记录
+        String recordsJson =  getResultedLddr();
+
+        String lobbeyJson = getLobbyJson();
 //
 //
 
 //
-//        //获取梯子记录
-//        String recordsJson =  getResultedLddr();
 //
-//        List<LddrHistoryRecord> records = JSONObject.parseArray(recordsJson ,LddrHistoryRecord.class);
+//
+        List<LddrHistoryRecord> records = JSONObject.parseArray(recordsJson ,LddrHistoryRecord.class);
 
         //获取最近梯子记录
 //        int count = 200; //默认取200条记录
-//        String recentLddrJson = getRecentLddr(count);
-//        List<LddrHistoryRecord> recentRecords = JSONObject.parseArray(recentLddrJson ,LddrHistoryRecord.class);
+        String recentLddrJson = getRecentLddr(200);
+        List<LddrHistoryRecord> recentRecords = JSONObject.parseArray(recentLddrJson ,LddrHistoryRecord.class);
 //        String gameNum = "201811051436";
 //        String betType = "3";
 //        String betMoney = "5";
@@ -201,6 +240,7 @@ public class Api {
                 currentLddr = JSONObject.parseObject(resp, LddrResp.class);;
                 currentLddrNum = currentLddr.getOpening_game().getNum();
             }catch (JSONException exception){
+                exception.printStackTrace();
                 System.out.println("密码错误");
                 return;
             }
@@ -209,12 +249,22 @@ public class Api {
 
         }while(currentLddrNum.equals(""));
 
+
+        //查看当前开奖是否为三单
+
+        System.out.println(currentLddr.getRecent_game().getResult());
+        System.exit(0);
         String currentMoney = currentLddr.getUser().getBalance().getCash();
 
         String nextLddrNum = null;
         String nextMoney = null;
         betIndex = 0;
         int count = 0;
+
+        if(count >= 1500 / 5  && max >= 1500){
+            System.out.println("完成目标　，　退出　");
+            return;
+        }
         int betSum = 0;
         while (true) {
             System.out.println("当前期数:"+currentLddrNum);
@@ -226,7 +276,7 @@ public class Api {
 
 
 //            if(betIndex < 6){
-                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.DAN : BetType.SHUANG, betMoney[betIndex] + "");
+                doBet(currentLddrNum, NumberUtil.isJiShu(cut4) ? BetType.SHUANG : BetType.DAN, betMoney[betIndex] + "");
                 count++;
                 betSum+= betMoney[betIndex];
             System.out.println("总下注次数:"+count);
@@ -332,10 +382,11 @@ public class Api {
     }
 
     private String lotteryLoginBefore() {
-        String login2Url = ltBaseUrl+"/vender.php?lang=zh-cn&referer_url=/pt/../charon/";
+        String login2Url = ltBaseUrl+"/charon/";
         HttpGet login2Get = new HttpGet(login2Url);
         login2Get.addHeader(new BasicHeader(Config.WebHeaderConfig.USERAGENT_KEY, Config.WebHeaderConfig.USERAGENT_VALUE));
         String login2BeforeResp = HttpClientUtils.getOrPost(login2Get, client);
+        System.out.println("login2BeforeResp"+login2BeforeResp);
         return login2BeforeResp;
     }
 
@@ -343,9 +394,16 @@ public class Api {
         return JSONObject.parseObject(betRespJson, BetResp.class);
     }
 
+    /**
+     * 获取　账户　,　余额　
+     */
     private void happy() {
-        System.out.println(this.htmlUsername + " \tWish all the best wishes for you.");
-        System.out.println("当前余额为 : " + this.htmlMoney);
+        try {
+            String content = EntityUtils.toString(client.execute(new HttpGet("https://www.240zr.com:9900/entrance/page/lottery?ni=1")).getEntity());
+            System.out.println(getUsernameAndBalance(content));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private UnreadMessage parseUnreadMessage(String unreadJson) {
@@ -412,13 +470,24 @@ public class Api {
         nvps.add(new BasicNameValuePair("game_num", gameNum));
         nvps.add(new BasicNameValuePair("portal", "0"));
         nvps.add(new BasicNameValuePair("platform", "0"));
+        //game: LDDR
+        //game_num: 201911260921
+        //datatype: array
+        //entrance: 0
+        //portal: 0
+        //client: 0
+        //platform: 0
+        //orders[3:ODD]: {"gold":1,"odds":3.92}
         //单
         if (BetType.DAN == betType) {
             nvps.add(new BasicNameValuePair("orders[ODD:END]", "{\"gold\":" + betMoney + ",\"odds\":1.97}"));
             //双
         } else if (BetType.SHUANG == betType) {
             nvps.add(new BasicNameValuePair("orders[EVEN:END]", "{\"gold\":" + betMoney + ",\"odds\":1.97}"));
-        } else {
+        } else if (BetType.SANDAN == betType) {
+            //三单
+            nvps.add(new BasicNameValuePair("orders[3:ODD]", "{\"gold\":" + betMoney + ",\"odds\":3.92}"));
+        }else {
             System.out.println("程序已停止运行，因为不可预计的结果出现，停止下注!");
             System.exit(0);
         }
@@ -568,34 +637,37 @@ public class Api {
         return ruleDto;
     }
 
-    private String checkRule() {
-        String checkRuleUrl = baseUrl + "/app/member/chk_rule.php";
-        HttpPost httpPost = new HttpPost(checkRuleUrl);
-        Map<String, String> headerParams = new HashMap();
-//        headerParams.put("Content-Type","application/x-www-form-urlencoded");
-        headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
-        headerParams.put("Referer", "https://888aad.com/infe/login/login");
-        if (headerParams != null && headerParams.size() > 0) {
-            for (Map.Entry<String, String> entry : headerParams.entrySet()) {
-                httpPost.addHeader(new BasicHeader(entry.getKey(), entry.getValue()));
-            }
-        }
-        List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+//    private String checkRule() {
+//        String checkRuleUrl = baseUrl + "/app/member/chk_rule.php";
+//        HttpPost httpPost = new HttpPost(checkRuleUrl);
+//        Map<String, String> headerParams = new HashMap();
+////        headerParams.put("Content-Type","application/x-www-form-urlencoded");
+//        headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
+//        headerParams.put("Referer", "https://888aad.com/infe/login/login");
+//        if (headerParams != null && headerParams.size() > 0) {
+//            for (Map.Entry<String, String> entry : headerParams.entrySet()) {
+//                httpPost.addHeader(new BasicHeader(entry.getKey(), entry.getValue()));
+//            }
+//        }
+//        List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+//
+//
+//        nvps.add(new BasicNameValuePair("uid", this.SESSION_ID));
+//
+//        httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charset.forName("UTF-8")));
+//        try {
+//            HttpResponse response = this.client.execute(httpPost);
+//            String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
+//            return respStr;
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
 
-
-        nvps.add(new BasicNameValuePair("uid", this.SESSION_ID));
-
-        httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charset.forName("UTF-8")));
-        try {
-            HttpResponse response = this.client.execute(httpPost);
-            String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
-            return respStr;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
+    /**
+     * 检查密码是否需要重新设置
+     */
     private void passwdCheck() {
         String doLoginUrl = baseUrl + "/infe/user/pwdlogin/check?_=" + System.currentTimeMillis();
         HttpGet httpGet = new HttpGet(doLoginUrl);
@@ -610,39 +682,55 @@ public class Api {
         try {
             HttpResponse response = this.client.execute(httpGet);
             String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
+
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void doLogin(String verifyCode) {
+    /**
+     * 1　成功　0　失败 2 验证码错误
+     * @param verifyCode
+     * @return
+     */
+    private int doLogin(String verifyCode) {
         //登录
-        String doLoginUrl = baseUrl + "/infe/login/login";
+        String doLoginUrl = baseUrl + "/entrance/login.json";
         HttpPost httpPost = new HttpPost(doLoginUrl);
         Map<String, String> headerParams = new HashMap();
 //        headerParams.put("Content-Type","application/x-www-form-urlencoded");
         headerParams.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0");
-        headerParams.put("Referer", "https://888aad.com/cl/index.php?module=System&method=first");
+        headerParams.put("Referer", "https://www.490zr.com:9885/entrance/page/soya?ni=1");
         if (headerParams != null && headerParams.size() > 0) {
             for (Map.Entry<String, String> entry : headerParams.entrySet()) {
                 httpPost.addHeader(new BasicHeader(entry.getKey(), entry.getValue()));
             }
         }
         List<NameValuePair> nvps = new ArrayList<NameValuePair>();
-        //uid2=guest
-        // SS=3f33634f7451fcb6c0081561e7374b2d
-        // SR=8a7efb7320e90c5e7af4
-        // TS=1541129979
-        // username=freebuf002
-        // passwd=abc081623
-        // rmNum=7981
-        nvps.add(new BasicNameValuePair("uid2", "guest"));
-        nvps.add(new BasicNameValuePair("SS", verifyBefore.split(";")[0]));
-        nvps.add(new BasicNameValuePair("SR", verifyBefore.split(";")[1]));
-        nvps.add(new BasicNameValuePair("TS", verifyBefore.split(";")[2]));
+        //username: freebuf002
+        //password: asd081623
+        //captcha: iayd
+        //sr: f13ef7d6e6a107fe7af4
+        //token:
+        //csessionid:
+        //sig:
+        //scene: nc_login
+        //appkey:
         nvps.add(new BasicNameValuePair("username", this.username));
-        nvps.add(new BasicNameValuePair("passwd", this.password));
-        nvps.add(new BasicNameValuePair("rmNum", verifyCode));
+        nvps.add(new BasicNameValuePair("password", this.password));
+        nvps.add(new BasicNameValuePair("captcha", verifyCode));
+        nvps.add(new BasicNameValuePair("sr", verifyBefore.split(";")[1]));
+        nvps.add(new BasicNameValuePair("token", ""));
+        nvps.add(new BasicNameValuePair("csessionid", ""));
+        nvps.add(new BasicNameValuePair("sig", ""));
+        nvps.add(new BasicNameValuePair("scene", "nc_login"));
+        nvps.add(new BasicNameValuePair("appkey", ""));
+//        nvps.add(new BasicNameValuePair("uid2", "guest"));
+//        nvps.add(new BasicNameValuePair("SS", verifyBefore.split(";")[0]));
+//
+//        nvps.add(new BasicNameValuePair("TS", verifyBefore.split(";")[2]));
+
+
 
         httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charset.forName("UTF-8")));
         try {
@@ -650,14 +738,23 @@ public class Api {
 
             String respStr = EntityUtils.toString(response.getEntity(), Charset.defaultCharset());
 
+            if(respStr.contains("111031906")){
+                return 2;
+            }
+            if(!respStr.contains("\"login_result\":1")){
+                System.out.println(("postbody:" + nvps));
+                System.out.println("login错误:"+"requesturl:"+doLoginUrl+"resp:"+respStr);
+                return 0;
+            }
 
             //设置sessionId的时机 方便后期调用
-            setSessionId(respStr);
+//            setSessionId(respStr);
 
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return 1;
     }
 
     private void setSessionId(String respStr) {
